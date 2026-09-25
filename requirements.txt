@@ -1,0 +1,5 @@
+# Aren needs NOTHING beyond Python 3.8+ stdlib.
+# Optional free extras you may install manually:
+#   ollama        (local free LLM server)      https://ollama.com
+#   termux-api    (phone tools, Termux only)   pkg install termux-api
+#   espeak / notify-send (voice & desktop notifications)

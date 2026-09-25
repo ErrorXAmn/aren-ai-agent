@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+aren_data/
+aren.config.json
+.venv/
+nohup.out
