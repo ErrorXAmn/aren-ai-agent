@@ -34,8 +34,8 @@ def main() -> int:
     print(BANNER)
     brain = Brain()
     if brain.backend == "offline":
-        print("[aren] no model backend found -> offline planner mode")
-        print("[aren] for full brain: install ollama, then `ollama pull qwen2.5:7b`")
+        print("[aren] offline planner mode (research, shell, notes, reminders work)")
+        print("[aren] full brain ke liye chat me type karo: ollama")
     else:
         print(f"[aren] backend={brain.backend} model={brain.model or '(default)'}")
     print("[aren] type /help for commands. Ctrl-D or /quit to exit.\n")
