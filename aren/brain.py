@@ -18,6 +18,9 @@ Design goals:
 
 import json
 import re
+import shutil
+import subprocess
+import time
 import urllib.error
 import urllib.request
 from typing import Any, Dict, List, Optional, Tuple
@@ -77,14 +80,30 @@ class Brain:
             return backend, cfg.get("model", ""), cfg.get("base_url", ""), cfg.get("api_key", "")
 
         # auto: Ollama -> OpenAI-compatible -> offline
-        try:
-            with urllib.request.urlopen("http://127.0.0.1:11434/api/tags", timeout=2) as r:
-                data = json.loads(r.read().decode("utf-8", "ignore"))
-            models = [m.get("name", "") for m in data.get("models", [])]
-            model = cfg.get("model") or next((m for m in models if "qwen" in m), models[0] if models else "")
-            return "ollama", model, "http://127.0.0.1:11434", ""
-        except Exception:
-            pass
+        base = "http://127.0.0.1:11434"
+        models: List[str] = []
+        for attempt in (1, 2):
+            try:
+                with urllib.request.urlopen(f"{base}/api/tags", timeout=2) as r:
+                    data = json.loads(r.read().decode("utf-8", "ignore"))
+                models = [m.get("name", "") for m in data.get("models", [])]
+                break
+            except Exception:
+                # server not running -> try to start it once (Termux/Ubuntu convenience)
+                if attempt == 1 and shutil.which("ollama"):
+                    try:
+                        subprocess.Popen(
+                            ["ollama", "serve"],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            start_new_session=True,
+                        )
+                        time.sleep(3)
+                    except Exception:
+                        pass
+        if models:
+            model = cfg.get("model") or next((m for m in models if "qwen" in m), models[0])
+            return "ollama", model, base, ""
         if cfg.get("base_url") or cfg.get("api_key"):
             return "openai", cfg.get("model", ""), cfg.get("base_url", "https://api.openai.com/v1"), cfg.get("api_key", "")
         return "offline", "", "", ""
@@ -184,16 +203,26 @@ class Brain:
         words = task.lower().split()
         verb = next((OFFLINE_VERBS[w] for w in words if w in OFFLINE_VERBS), None)
         if verb is None:
+            if "ollama" in task.lower():
+                return (
+                    "Ollama setup (run these in the SHELL, not inside chat):\n"
+                    "  1. /quit                        <- leave Aren first\n"
+                    "  2. ollama serve &               <- start the local brain server\n"
+                    "  3. ollama pull qwen2.5:3b       <- phone-friendly (7b needs 8GB+ RAM)\n"
+                    "  4. aren                         <- restart; auto-detects the model\n"
+                    "Tip: low RAM? pull qwen2.5:1.5b or qwen2.5:0.5b instead.\n"
+                    "Or use any free OpenAI-compatible API in aren.config.json."
+                )
             return (
-                "Offline mode: no model backend found.\n"
-                "Install Ollama (free) and pull a model, e.g.:\n"
-                "  ollama pull qwen2.5:7b\n"
-                "Then rerun. Meanwhile these commands work:\n"
-                "  aren run <shell command>\n"
-                "  aren research <topic>\n"
-                "  aren note <text>\n"
-                "  aren remind <text> in <minutes> min\n"
-                "  aren tools\n"
+                "Offline mode: no model backend found (yet).\n"
+                "These work right now, no key needed:\n"
+                "  aren research <topic>          real web search\n"
+                "  aren run <shell command>       real device commands\n"
+                "  aren note <text>               save to ~/aren_data/notes.md\n"
+                "  aren remind <text> in <n> min  daemon reminder\n"
+                "  aren tools                     everything I can do\n"
+                "Inside chat, run shell commands with:  /run <command>\n"
+                "Full brain ke liye type karo:  ollama"
             )
         if verb == "web_search":
             query = task
